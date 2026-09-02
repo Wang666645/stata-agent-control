@@ -1,0 +1,4 @@
+__pycache__/
+*.py[cod]
+stata_outputs/
+.DS_Store
