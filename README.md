@@ -1,55 +1,55 @@
-# STATA Agent Control — MCP Server
+# STATA Agent Control — MCP 服务器
 
-Model Context Protocol (MCP) server that lets AI agents / IDEs
-(Claude Code, Antigravity, Gemini CLI, …) **drive a local Stata** instance for
-data analysis and econometrics: load data, run regressions, export tables and
-charts, and get structured results back — all from natural-language or
-tool-call instructions.
+**用自然语言/工具调用驱动本机 Stata 的 MCP（Model Context Protocol）服务器。**
+面向 AI Agent / IDE（Claude Code、Antigravity、Gemini CLI 等）：导入数据、
+跑回归、导出表格与图表，并把结构化结果返回给 Agent——全程由 Agent 翻译你的
+中文指令并执行，无需手写 do 文件。
 
-## What you get
+## 功能一览
 
-- One **stdio MCP server**, zero third-party Python dependencies (stdlib only).
-- 8 tools:
+- **stdio MCP 服务器**，零第三方 Python 依赖（仅标准库）。
+- 内置 **8 个工具**：
 
-| Tool | Purpose |
+| 工具 | 用途 |
 |---|---|
-| `stata_locate` | detect the local Stata installation |
-| `stata_env` | Stata version / edition / OS info |
-| `stata_run` | execute a self-contained Stata do script (core) |
-| `stata_load` | import a data file (dta/csv/xlsx) and summarize variables |
-| `stata_which` | check whether external commands (reghdfe, esttab, …) exist |
-| `stata_templates` | curated academic template snippets (OLS/panel FE/DID/IV/logit…) |
-| `stata_outputs` | list exported artifacts (PNG charts, RTF/CSV tables) |
-| `stata_clean` | clean temporary work dirs and old artifacts |
+| `stata_locate` | 自动探测本机 Stata 安装位置 |
+| `stata_env` | Stata 版本 / 版本类型 / 系统信息 |
+| `stata_run` | 执行一段自足的 Stata do 脚本（核心工具） |
+| `stata_load` | 导入数据文件（dta/csv/xlsx）并输出变量概览 |
+| `stata_which` | 检查外部命令是否安装（reghdfe、esttab 等） |
+| `stata_templates` | 学术模板库（OLS / 面板FE / DID / IV / Logit 等） |
+| `stata_outputs` | 列出导出的产物（PNG 图表、RTF/CSV 表格） |
+| `stata_clean` | 清理临时工作目录与旧产物 |
 
-## Requirements
+## 运行环境要求
 
-- **Windows** with a 64-bit **Stata** (MP/SE/BE) installed in the default
-  location (`C:\Program Files\StataNN\`) — auto-detected via the registry;
-  environment override: `STATA_HOME`.
-- **Python 3.10+** (developed and tested on 3.14). No `pip install` needed.
-- Outbound network only if you let Stata fetch user-written commands
-  (`ssc install reghdfe`, …).
+- **Windows** + 64 位 **Stata**（MP/SE/BE，默认安装于
+  `C:\Program Files\StataNN\`，通过注册表自动探测；可用环境变量 `STATA_HOME`
+  覆盖）。
+- **Python 3.10+**（开发与测试于 3.14）。**无需** `pip install` 任何包。
+- 仅在让 Stata 安装社区命令（`ssc install reghdfe` 等）时才需要外网。
 
-## How it works
+## 工作原理
 
-Each tool call runs one **headless batch** session:
-`StataMP-64.exe /e do <temp.do>` (new session per call, ~1–3 s startup).
-- do-scripts are written as UTF-8 (no BOM) — Chinese comments/paths are fine.
-- Output (log) is parsed into structured JSON: return codes with human hints,
-  extracted coefficient tables, error context.
-- Files produced by the script (charts, esttab reports) are copied into
-  `<repo>/stata_outputs/<runid>_<title>/` (or `~/.stata-skill/stata_outputs/`).
+每次工具调用 = 一次**无头批处理会话**：
+`StataMP-64.exe /e do <临时.do>`（每次全新会话，启动约 1–3 秒）。
 
-## Quick start
+- do 脚本按 **UTF-8（无 BOM）** 写入——中文注释、中文路径均可正常使用；
+- 输出日志被解析为结构化 JSON：错误码（附中文提示）、自动提取的系数表、
+  错误上下文；
+- 脚本产生的文件（图表、esttab 报告）自动复制到
+  `<仓库根>/stata_outputs/<runid>_<title>/`（或全局安装时
+  `~/.stata-skill/stata_outputs/`）。
+
+## 快速开始
 
 ```bash
 python -X utf8 mcp_server/stata_mcp.py
 ```
 
-Or set `PYTHONUTF8=1` in the environment instead of `-X utf8`.
+（或在环境变量中设置 `PYTHONUTF8=1`，代替 `-X utf8`。）
 
-Smoke test (newline-delimited JSON-RPC over stdio):
+冒烟测试（stdio 换行分隔 JSON-RPC）：
 
 ```bash
 printf '%s\n' \
@@ -59,50 +59,50 @@ printf '%s\n' \
 | python -X utf8 mcp_server/stata_mcp.py
 ```
 
-## Client configuration
+## 客户端接入示例
 
-Claude Code (user scope):
+**Claude Code（用户级，任何项目可用）：**
 
 ```bash
-claude mcp add -s user stata -e PYTHONUTF8=1 -- python /absolute/path/to/mcp_server/stata_mcp.py
+claude mcp add -s user stata -e PYTHONUTF8=1 -- python /绝对路径/mcp_server/stata_mcp.py
 ```
 
-> Note: `-e` is variadic — place it after the name and before `--`; do not pass
-> `-X` to python through the launcher (it gets eaten by the CLI parser), use the
-> `PYTHONUTF8=1` environment variable instead.
+> 注意：`-e` 是贪婪变参——要放在服务器名之后、`--` 之前；不要经 CLI 启动器给
+> python 传 `-X`（会被解析器吞掉），改用环境变量 `PYTHONUTF8=1`。
 
-Antigravity (`~/.gemini/config/mcp_config.json` or `<workspace>/.agents/mcp_config.json`):
+**Antigravity**（写入 `~/.gemini/config/mcp_config.json`，或项目内
+`.agents/mcp_config.json`）：
 
 ```json
 {
   "mcpServers": {
     "stata": {
       "command": "python",
-      "args": ["/absolute/path/to/mcp_server/stata_mcp.py"],
+      "args": ["/绝对路径/mcp_server/stata_mcp.py"],
       "env": { "PYTHONUTF8": "1" }
     }
   }
 }
 ```
 
-Any other MCP client: standard stdio transport, same command.
+其他任意 MCP 客户端：标准 stdio 传输，同样命令即可。
 
-## Tool result shape
+## 工具返回结构
 
-Every tool returns a JSON object with at least `ok`; estimation runs add
-`rcs` (Stata error codes), `first_error` (code + hint + context), `tables`
-(extracted coefficient tables), `text`/`tail` (full log), and `artifacts`.
+每个工具返回一个 JSON 对象，至少含 `ok` 字段；执行类工具还会带：
+`rcs`（Stata 错误码）、`first_error`（错误码 + 中文提示 + 上下文）、
+`tables`（提取的系数表）、`text`/`tail`（完整日志）、`artifacts`（产物列表）。
 
-## Tips & pitfalls (learned the hard way)
+## 经验与坑（实测总结）
 
-- Stata do-files must be **UTF-8 without BOM** (BOM ⇒ `r(199)`; GBK ⇒ mojibake).
-  This server handles it; don't hand-write BOM files.
-- Never trust the batch process exit code alone — parse the log for `r(###)`.
-- Scripts are self-contained per call (no dataset persists between calls);
-  pass the data file each time (`use "..."` inside your script or see
-  `stata_load`).
-- External commands like `reghdfe`/`esttab` may need `ssc install` once.
+- Stata 的 do 文件必须是 **UTF-8 无 BOM**：带 BOM 会报 `r(199)`，GBK 编码会乱码。
+  本服务器已按此处理，请勿手写带 BOM 的文件。
+- **不要只看批处理进程退出码**——以日志中的 `r(###)` 为准（曾出现日志报错但
+  退出码为 0 的情况）。
+- 每次调用都是全新会话，**数据不会跨调用保留**：脚本需自足（自己 `use` /
+  `import` 数据），长任务请写成单段脚本一次执行。
+- reghdfe / estout / winsor2 等社区命令可能需要先执行一次 `ssc install`。
 
-## License
+## 许可
 
-MIT — see [LICENSE](LICENSE).
+MIT —— 见 [LICENSE](LICENSE)。
